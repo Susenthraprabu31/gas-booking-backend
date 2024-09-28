@@ -5,11 +5,11 @@ const router = express.Router()
 
 
 
-router.post("/CreateUser",GasController.createUser);
-router.post("/loginUser", GasController.loginUser);
+router.post("/createUser",GasController.registerUser)
+router.post("/loginUser", GasController.loginUser)
 router.post("/booking", GasController.bookGas)
 router.post('/updatePayment', GasController.razorpayWeb)
 
 
 
-export default router
+export default router;
