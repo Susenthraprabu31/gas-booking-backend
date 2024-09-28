@@ -8,9 +8,9 @@ dotenv.config();
 
 const registerUser = async (req, res) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const { name, email, mobile, password } = req.body;
 
-    if (!name || !email || !phone || !password) {
+    if (!name || !email || !mobile || !password) {
       return res.status(400).send({ message: "All fields are required!" });
     }
 
@@ -23,12 +23,12 @@ const registerUser = async (req, res) => {
 
     const hashpassword = await bcryptjs.hash(password, 10);
 
-    const newUser = new User({ name, email, phone, password: hashpassword });
+    const newUser = new User({ name, email, mobile, password: hashpassword });
     await newUser.save();
 
     res.status(200).send({ message: "User registered successfully!" });
   } catch (error) {
-    res.status(500).send({ message: "Registration was failed!" });
+    res.status(500).send({ message: "Oops! Registration was failed!" });
   }
 };
 
@@ -43,7 +43,7 @@ const registerUser = async (req, res) => {
     if (!passwordMatch) {
       return res.status(401).send({ message: "Invalid password!" });
     }
-    res.status(200).send({ message: "User logged-in successfully!" });
+    res.status(200).send({ message: "User login successfully!" });
   } catch (error) {
     res.status(500).send({ message: "Login was failed!" });
   }
@@ -51,9 +51,9 @@ const registerUser = async (req, res) => {
 
  const bookGas = async (req, res) => {        
   try {
-    const { email, product, quantity, fullName, address, date, timeSlot, phoneNumber, totalPrice } = req.body;
+    const { email, product, quantity, name, address, date, timeSlot, mobile, totalPrice } = req.body;
 
-    if (!email || !product || !quantity || !fullName || !address || !date || !timeSlot || !phoneNumber || !totalPrice) {
+    if (!email || !product || !quantity || !name || !address || !date || !timeSlot || !mobile || !totalPrice) {
       return res.status(400).send({ message: "All fields are mandatory!" });
     }
 
@@ -61,11 +61,11 @@ const registerUser = async (req, res) => {
       email,
       product,
       quantity,
-      fullName,
+      name,
       address,
       date,
       timeSlot,
-      phoneNumber,
+      mobile,
       totalPrice,
       paymentStatus: "Pending",
     });
@@ -128,10 +128,23 @@ const razorpayWeb = async (req, res) => {
     res.status(500).send({ message: "Error in webhook handler" });
   }
 };
+const getAllUsers = async (req, res) => {
+    try {
+        let users = await usersModel.find({},{_id:0})
+        res.status(200).send({
+            message: "Data Fetch Successfull",
+            data: users
+        })
+    } catch (error) {
+        console.log(`Error in ${req.originalUrl}`,error.message)
+        res.status(500).send({ message: error.message || "Internal Server Error" })
+    }
+}
 
 export default{
     registerUser,
     loginUser,
     bookGas,
-    razorpayWeb
+    razorpayWeb,
+    getAllUsers
 }
