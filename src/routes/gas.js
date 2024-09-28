@@ -5,7 +5,7 @@ const router = express.Router()
 
 
 
-router.post("/registerUser",GasController.registerUser);
+router.post("/CreateUser",GasController.createUser);
 router.post("/loginUser", GasController.loginUser);
 router.post("/booking", GasController.bookGas)
 router.post('/updatePayment', GasController.razorpayWeb)
