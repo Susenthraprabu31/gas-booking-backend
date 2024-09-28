@@ -6,9 +6,11 @@ import verifyAuth from '../middleware/verifyAuth.js';
 const router = express.Router()
 
 
-router.post('/bookgas',GasController.bookgas)
-router.get('/getAllBookGas',verifyAuth,verifyAdmin,GasController.getAllBookGas)
-router.post('/updated-payment',GasController.razorpay)
+
+router.post("/registerUser",verifyAuth,GasController.registerUser);
+router.post("/loginUser", GasController.loginUser);
+router.post("/booking", GasController.bookGas)
+router.post('/updatePayment', GasController.razorpayWeb)
 
 
 

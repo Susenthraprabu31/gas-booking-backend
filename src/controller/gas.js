@@ -1,119 +1,137 @@
-import gasModel from '../model/gas.js'
-import config from '../utils/config.js'
-import Razorpay from 'razorpay';
+import User from "../model/users.js";
+import Booking from "../model/gas.js";
+import bcryptjs from "bcryptjs";
+import dotenv from "dotenv";
+import Razorpay from "razorpay";
 
+dotenv.config();
 
+const registerUser = async (req, res) => {
+  try {
+    const { name, email, phone, password } = req.body;
 
+    if (!name || !email || !phone || !password) {
+      return res.status(400).send({ message: "All fields are required!" });
+    }
 
-const bookgas = async (req, res) => {
-    try {
-        let gas = await gasModel.findOne({ email: req.body.email, product: req.body.product,totalPrice:req.body.totalPrice })
-        if (!gas) {
-            gas = await gasModel.create(req.body)
-            res.status(201).send({
-                message: "Gas booked successfully",
-            })
-        } else {
-            res.status(400).send({
-                message: "Gas already booked",
-            })
-        }
-        const Booking = new gasModel({
-            email,
-            product,
-            quantity,
-            fullName,
-            address,
-            date,
-            timeSlot,
-            phoneNumber,
-            totalPrice,
-            paymentStatus: "Pending",
-        });
-        await Booking.save();
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res
+        .status(409)
+        .send({ message: "User with this email already exists!" });
+    }
 
-        const options = {
-            amount: Number(totalPrice) * 100,
-            currency: "INR",
-            receipt: newBooking._id.toString(),
-            payment_capture: 1,
-          };
+    const hashpassword = await bcryptjs.hash(password, 10);
 
-        const razorpay = new Razorpay({
-            key_id: config.KEY_ID,
-            key_secret: config.KEY_SECRET,
-        });
+    const newUser = new User({ name, email, phone, password: hashpassword });
+    await newUser.save();
 
-        const order = await razorpay.orders.create(options);
+    res.status(200).send({ message: "User registered successfully!" });
+  } catch (error) {
+    res.status(500).send({ message: "Registration was failed!" });
+  }
+};
 
-        if (!order == 'created') {
-            return res.status(500).send({ message: "Error in placing order!" });
-        }
+ const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const userDetail = await User.findOne({ email });
+    if (!userDetail) {
+      return res.status(401).send({ message: "user not found!" });
+    }
+    const passwordMatch = await bcryptjs.compare(password, userDetail.password);
+    if (!passwordMatch) {
+      return res.status(401).send({ message: "Invalid password!" });
+    }
+    res.status(200).send({ message: "User logged-in successfully!" });
+  } catch (error) {
+    res.status(500).send({ message: "Login was failed!" });
+  }
+};
 
-        booking.razorpayOrderId = order.id;
+ const bookGas = async (req, res) => {        
+  try {
+    const { email, product, quantity, fullName, address, date, timeSlot, phoneNumber, totalPrice } = req.body;
+
+    if (!email || !product || !quantity || !fullName || !address || !date || !timeSlot || !phoneNumber || !totalPrice) {
+      return res.status(400).send({ message: "All fields are mandatory!" });
+    }
+
+    const newBooking = new Booking({
+      email,
+      product,
+      quantity,
+      fullName,
+      address,
+      date,
+      timeSlot,
+      phoneNumber,
+      totalPrice,
+      paymentStatus: "Pending",
+    });
+    await newBooking.save();
+
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZOR_PAY_ID,
+      key_secret: process.env.RAZOR_PAY_SECRET_KEY,
+    });
+
+    const options = {
+      amount: Number(totalPrice) * 100,
+      currency: "INR",
+      receipt: newBooking._id.toString(),
+      payment_capture: 1,
+    };
+
+    const order = await razorpay.orders.create(options);
+
+    if (!order || order.status !== 'created') {
+      return res.status(500).send({ message: "Error in placing Razorpay order!" });
+    }
+
+    
+    newBooking.razorpayOrderId = order.id;
+    await newBooking.save();
+
+    res.status(200).send({
+      message: "Your order has been placed successfully!",
+      order,
+    });
+
+    console.log(newBooking);
+  } catch (error) {
+    console.error("Error in bookGas:", error);
+    res.status(500).send({ message: "An error occurred while placing the order!" });
+  }
+};
+
+const razorpayWeb = async (req, res) => {
+  try {
+    const { event, payload } = req.body;
+
+    if (event === "payment.captured") {
+      const { order_id } = payload.payment.entity;
+      const booking = await Booking.findOne({ razorpayOrderId: order_id });
+
+      if (booking) {
+        booking.paymentStatus = "Paid";
         await booking.save();
-
-        res.status(200).send({
-            message: "Your order has been placed successfully!",
-            order
-        })
-
-
-
-    } catch (error) {
-        console.log(`Error in ${req.originalUrl}`, error.message)
-        res.status(500).send({ message: error.message || "Internal Server Error" })
-    }
-}
-
-                
-
-               
-const getAllBookGas = async (req, res) => {
-    try {
-        let gas = await gasModel.find({},{_id:0})
-        res.status(200).send({
-            message: "Data Fetch Successfull",
-            data: gas
-        })
-    } catch (error) {
-        console.log(`Error in ${req.originalUrl}`,error.message)
-        res.status(500).send({ message: error.message || "Internal Server Error" })
-    }
-}
-
-
-const razorpay = async (req, res) => {
-    try {
-      const { event, payload } = req.body;
-  
-      if (event === "payment.captured") {
-        const { order_id } = payload.payment.entity;
-        const booking = await gasModel.findOne({ razorpayOrderId: order_id });
-  
-        if (booking) {
-          booking.paymentStatus = "Paid";
-          await booking.save();
-          res.status(200).send({ message: "Payment status updated" });
-        } else {
-          res.status(400).send({ message: "Booking not found" });
-        }
+        res.status(200).send({ message: "Payment status updated" });
       } else {
-        res.status(400).send({ message: "Error Occured" });
+        res.status(404).send({ message: "Booking not found" });
       }
-    } catch (error) {
-        console.log(`Error in ${req.originalUrl}`,error.message)
-        res.status(500).send({ message: error.message || "Internal Server Error" })
+    } else {
+      res.status(400).send({ message: "Event not handled" });
     }
-}
-
-
-
+  } catch (error) {
+    console.error("Error in razorpayWebhook:", error);
+    res.status(500).send({ message: "Error in webhook handler" });
+  }
+};
 
 export default{
-    bookgas,
-    getAllBookGas,
-    razorpay
-
-   
+    registerUser,
+    loginUser,
+    bookGas,
+    razorpayWeb
 }
